@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?><!-- Copyright (c) 2018 HUMAX Co., Ltd. All rights reserved. --><!-- Use of this source code is governed by HUMAX license that can be found in the LICENSE file. -->
+
+<!-- Mapping of keycodes to a broadcast receiver which will be handled globally.
+     Modify this file to add global keys.
+     A global key will NOT go to the foreground application and instead only
+     ever be sent via targeted broadcast to the specified component. The action
+     of the intent will be android.intent.action.GLOBAL_BUTTON and the KeyEvent
+     will be included in the intent as android.intent.extra.KEY_EVENT.
+
+    @element <global_keys>
+        @attribute 'version':
+                   version code of this xml (must be 1)
+        @element <key>
+            @attribute 'keyCode':
+                       key string that is converted from key code defined in
+                       KeyEvent.
+            @attribute 'priority': (default: 0)
+                       value of priority that determins which key should be 
+                       dispatched ahead of other key that has lower value.
+            @attribute 'stopPropagationSince' (default: false)
+                       extra option to let the broadcaster stopped processing of
+                       dispatching since calling of this receiver.
+            @attribute 'skipDefaultAction': (default: false)
+                       extra option to request to the broadcaster don't inject
+                       this key event to framework after broadcasting. 
+-->
+
+<global_keys version="1">
+    <key
+        keyCode="KEYCODE_CHANNEL_UP"
+        priority="10"
+        skipDefaultAction="false"
+        stopPropagationSince="false" />
+    <key
+        keyCode="KEYCODE_CHANNEL_DOWN"
+        priority="10"
+        skipDefaultAction="false"
+        stopPropagationSince="false" />
+    <key
+        keyCode="KEYCODE_MEDIA_STEP_FORWARD"
+        priority="10"
+        skipDefaultAction="false"
+        stopPropagationSince="false" />
+    <key
+        keyCode="KEYCODE_MEDIA_STEP_BACKWARD"
+        priority="10"
+        skipDefaultAction="false"
+        stopPropagationSince="false" />
+    <key keyCode="KEYCODE_VOICE_ASSIST" />
+</global_keys>
