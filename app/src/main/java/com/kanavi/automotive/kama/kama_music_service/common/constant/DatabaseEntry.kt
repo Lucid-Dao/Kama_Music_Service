@@ -2,7 +2,7 @@ package com.kanavi.automotive.kama.kama_music_service.common.constant
 
 object DatabaseEntry {
     const val DATABASE_NAME = "usb_music_database.db"
-    const val DATABASE_VERSION = 6
+    const val DATABASE_VERSION = 1
 
     //USB
     const val USB_ID = "usb_id"

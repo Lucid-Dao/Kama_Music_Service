@@ -1,5 +1,6 @@
 package com.kanavi.automotive.kama.kama_music_service.common.extension
 
+import android.content.ContentUris
 import android.content.Context
 import android.media.MediaMetadataRetriever
 import android.net.Uri
@@ -9,6 +10,7 @@ import android.provider.BaseColumns
 import android.provider.MediaStore
 import android.provider.OpenableColumns
 import android.text.TextUtils
+import androidx.core.net.toUri
 import com.kanavi.automotive.kama.kama_music_service.common.constant.Constants.SD_OTG_PATTERN
 import com.kanavi.automotive.kama.kama_music_service.common.constant.Constants.SD_OTG_SHORT
 import java.io.File
@@ -150,6 +152,7 @@ fun Context.getTitle(path: String): String? {
         retriever.release()
     }
 }
+
 
 
 fun Context.getArtist(path: String): String? {
@@ -387,6 +390,29 @@ fun Context.getStorageDirectories(): Array<String> {
         Collections.addAll(paths, *rawSecondaryStorages)
     }
     return paths.map { it.trimEnd('/') }.toTypedArray()
+}
+
+fun Context.getAlbumArtUriFromTitle(albumTitle: String): Uri? {
+    val projection = arrayOf(MediaStore.Audio.Albums._ID, MediaStore.Audio.Albums.ALBUM)
+    val selection = "${MediaStore.Audio.Albums.ALBUM} = ?"
+    val selectionArgs = arrayOf(albumTitle)
+
+    // Truy vấn MediaStore để lấy album ID từ tên album
+    contentResolver.query(
+        MediaStore.Audio.Albums.EXTERNAL_CONTENT_URI,
+        projection,
+        selection,
+        selectionArgs,
+        null
+    )?.use { cursor ->
+        if (cursor.moveToFirst()) {
+            val albumId = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Audio.Albums._ID))
+
+            val sArtworkUri = "content://media/external/audio/albumart".toUri()
+            return ContentUris.withAppendedId(sArtworkUri, albumId)
+        }
+    }
+    return null
 }
 
 

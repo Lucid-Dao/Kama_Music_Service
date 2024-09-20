@@ -1,10 +1,16 @@
 package com.kanavi.automotive.kama.kama_music_service.common.util
 
 import android.content.Context
+import android.net.Uri
 import com.kanavi.automotive.kama.kama_music_service.common.constant.MediaConstant
+import com.kanavi.automotive.kama.kama_music_service.common.constant.MediaConstant.MEDIA_ID_MUSICS_BY_ALBUM
+import com.kanavi.automotive.kama.kama_music_service.common.constant.MediaConstant.MEDIA_ID_MUSICS_BY_FAVORITE
+import com.kanavi.automotive.kama.kama_music_service.common.constant.MediaConstant.MEDIA_ID_MUSICS_BY_FILE
+import com.kanavi.automotive.kama.kama_music_service.common.constant.MediaConstant.MEDIA_ID_MUSICS_BY_SONGS
 import com.kanavi.automotive.kama.kama_music_service.data.database.model.FileDirItem
 import com.kanavi.automotive.kama.kama_music_service.common.extension.containsNoMedia
 import com.kanavi.automotive.kama.kama_music_service.common.extension.getAlbum
+import com.kanavi.automotive.kama.kama_music_service.common.extension.getAlbumArtUriFromTitle
 import com.kanavi.automotive.kama.kama_music_service.common.extension.getAlbumIdAndArtistIdFromPath
 import com.kanavi.automotive.kama.kama_music_service.common.extension.getArtist
 import com.kanavi.automotive.kama.kama_music_service.common.extension.getDuration
@@ -12,6 +18,7 @@ import com.kanavi.automotive.kama.kama_music_service.common.extension.getFilenam
 import com.kanavi.automotive.kama.kama_music_service.common.extension.getMediaStoreIdFromPath
 import com.kanavi.automotive.kama.kama_music_service.common.extension.getMediaStoreLastModified
 import com.kanavi.automotive.kama.kama_music_service.common.extension.getParentPath
+import com.kanavi.automotive.kama.kama_music_service.common.extension.getTitle
 import com.kanavi.automotive.kama.kama_music_service.common.extension.getUsbID
 import com.kanavi.automotive.kama.kama_music_service.common.extension.getYear
 import com.kanavi.automotive.kama.kama_music_service.common.extension.isAudioFast
@@ -25,6 +32,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import timber.log.Timber
@@ -42,10 +50,33 @@ object UsbUtil : KoinComponent {
 
     private const val STEP_SONG_TO_UPDATE = 100
 
+    suspend fun isHaveDB(rootPath: String) =
+        DBHelper.getAllSongFromUsb(rootPath.getUsbID()).isNotEmpty()
+
+    suspend fun getDatafromDB(
+        rootPath: String,
+        songInDb: MutableStateFlow<List<Song>>,
+        albumInDb: MutableStateFlow<List<Album>>,
+        favoriteInDb: MutableStateFlow<List<Song>>,
+        songInAlbumInDb: HashMap<Long, List<Song>>
+    ) {
+        val usbId = rootPath.getUsbID()
+        songInDb.value = DBHelper.getAllSongFromUsb(usbId)
+        albumInDb.value = DBHelper.getAllAlbumFromUsb(usbId)
+        val favoriteList = DBHelper.getAllSongFavorite(usbId)
+        if (favoriteList != null) {
+            favoriteInDb.value = favoriteList
+        }
+        albumInDb.value.forEach {
+            songInAlbumInDb[it.id] = DBHelper.getAllSongFromAlbum(it.title)
+        }
+    }
+
     fun scanAllMusicFromUsb(
         rootPath: String,
         pathsToIgnore: List<String>,
         songList: ArrayList<Song>,
+        songMap: HashMap<Int, Song>,
         treeNode: TreeNode,
         songInDb: MutableStateFlow<List<Song>>,
         albumInDb: MutableStateFlow<List<Album>>,
@@ -60,41 +91,78 @@ object UsbUtil : KoinComponent {
             return
         }
 
-        val rootFile = File(rootPath)
-        val numberFileCount = IntNumber(0)
-        findAudioFiles(
-            rootFile,
-            pathsToIgnore,
-            numberFileCount,
-            songList,
-            treeNode
-        )
-        val itemUsbMediaID = MediaIDHelper.createMediaID(
-            musicProvider.getSelectedUsbID(),
-            MediaConstant.MEDIA_ID_ROOT_USB
-        )
-        musicProvider.notifyDataChanged(
-            listOf(itemUsbMediaID, musicProvider.currentParentID)
-        )
-        if (songList.isEmpty()) {
-            Timber.e("Have no song in usb: $rootPath")
-        }
-        DBHelper.updateAllDatabase(songList)
         CoroutineScope(Dispatchers.IO).launch {
-            val usbId = rootPath.getUsbID()
-
-            songInDb.value = DBHelper.getAllSongFromUsb(usbId)
-            albumInDb.value = DBHelper.getAllAlbumFromUsb(usbId)
-            val favoriteList = DBHelper.getAllSongFavorite(usbId)
-            if (favoriteList != null) {
-                favoriteInDb.value = favoriteList
+            // have in DB
+            val isDatabaseBefore = mutableListOf(false)
+            if (isHaveDB(rootPath)) {
+                Timber.d("Had data in DB before")
+                getDatafromDB(
+                    rootPath,
+                    songInDb,
+                    albumInDb,
+                    favoriteInDb,
+                    songInAlbumInDb
+                )
+                isDatabaseBefore[0] = true
+                withContext(Dispatchers.Main) {
+                    musicProvider.notifyDataChanged(
+                        listOf(
+                            MEDIA_ID_MUSICS_BY_SONGS,
+//                            MEDIA_ID_MUSICS_BY_FILE,
+//                            MEDIA_ID_MUSICS_BY_FAVORITE,
+//                            MEDIA_ID_MUSICS_BY_ALBUM,
+                            musicProvider.currentParentID
+                        )
+                    )
+                }
             }
 
-            albumInDb.value.forEach {
-                songInAlbumInDb[it.id] = DBHelper.getAllSongFromAlbum(it.title)
+            val rootFile = File(rootPath)
+            val numberFileCount = IntNumber(0)
+            findAudioFiles(
+                rootFile,
+                pathsToIgnore,
+                numberFileCount,
+                songList,
+                songMap,
+                treeNode,
+                isDatabaseBefore,
+                songInDb,
+                albumInDb,
+                favoriteInDb,
+                songInAlbumInDb
+            )
+//            val itemUsbMediaID = MediaIDHelper.createMediaID(
+//                musicProvider.getSelectedUsbID(),
+//                MediaConstant.MEDIA_ID_ROOT_USB
+//            )
+            if (songList.isEmpty()) {
+                Timber.e("Have no song in usb: $rootPath")
             }
+            DBHelper.updateAllDatabase(songList)
+
+            getDatafromDB(
+                rootPath,
+                songInDb,
+                albumInDb,
+                favoriteInDb,
+                songInAlbumInDb
+            )
+
+            withContext(Dispatchers.Main) {
+                musicProvider.notifyDataChanged(
+                    listOf(
+                        MEDIA_ID_MUSICS_BY_SONGS,
+                        MEDIA_ID_MUSICS_BY_FILE,
+                        MEDIA_ID_MUSICS_BY_FAVORITE,
+                        MEDIA_ID_MUSICS_BY_ALBUM,
+                        musicProvider.currentParentID
+                    )
+                )
+            }
+            Timber.e("=============FINISH SCAN ALL MEDIA FILES FROM USB ID: $rootPath - size of list is ${songList.size}============")
+
         }
-        Timber.e("=============FINISH SCAN ALL MEDIA FILES FROM USB ID: $rootPath - size of list is ${songList.size}============")
     }
 
     private fun findAudioFiles(
@@ -102,9 +170,14 @@ object UsbUtil : KoinComponent {
         excludedPaths: List<String>,
         numberFileCount: IntNumber,
         songList: ArrayList<Song>,
+        songMap: HashMap<Int, Song>,
         treeNode: TreeNode,
+        isCheckDB: MutableList<Boolean>,
+        songInDb: MutableStateFlow<List<Song>>,
+        albumInDb: MutableStateFlow<List<Album>>,
+        favoriteInDb: MutableStateFlow<List<Song>>,
+        songInAlbumInDb: HashMap<Long, List<Song>>
     ) {
-
         Timber.i("scanning file with absolutePath: ${file.absolutePath} path: ${file.path}")
         if (file.isHidden) {
             Timber.i("file is hidden")
@@ -125,17 +198,41 @@ object UsbUtil : KoinComponent {
                 val song = getSongFromPath(path)
                 song.let {
                     songList.add(it)
+                    songMap[path.hashCode()] = it
                 }
                 numberFileCount.increase()
                 TreeNode.createTree(listOf(path), treeNode)
-                if (numberFileCount.value % STEP_SONG_TO_UPDATE == STEP_SONG_TO_UPDATE - 1) {
-                    val itemUsbMediaID = MediaIDHelper.createMediaID(
-                        musicProvider.getSelectedUsbID(),
-                        MediaConstant.MEDIA_ID_ROOT_USB
-                    )
-                    musicProvider.notifyDataChanged(
-                        listOf(itemUsbMediaID, musicProvider.currentParentID)
-                    )
+                if (!isCheckDB[0]) {
+                    if (numberFileCount.value % STEP_SONG_TO_UPDATE == STEP_SONG_TO_UPDATE - 1) {
+//                        val itemUsbMediaID = MediaIDHelper.createMediaID(
+//                            musicProvider.getSelectedUsbID(),
+//                            MediaConstant.MEDIA_ID_ROOT_USB
+//                        )
+                        isCheckDB[0] = true
+                        CoroutineScope(Dispatchers.IO).launch {
+                            Timber.d("notify 100 items")
+                            DBHelper.updateAllDatabase(songList)
+                            getDatafromDB(
+                                path,
+                                songInDb,
+                                albumInDb,
+                                favoriteInDb,
+                                songInAlbumInDb
+                            )
+
+                            withContext(Dispatchers.Main) {
+                                musicProvider.notifyDataChanged(
+                                    listOf(
+                                        MEDIA_ID_MUSICS_BY_SONGS,
+                                        MEDIA_ID_MUSICS_BY_FILE,
+                                        MEDIA_ID_MUSICS_BY_FAVORITE,
+                                        MEDIA_ID_MUSICS_BY_ALBUM,
+                                        musicProvider.currentParentID
+                                    )
+                                )
+                            }
+                        }
+                    }
                 }
             } else {
                 Timber.i("$path is NOT audio")
@@ -147,7 +244,13 @@ object UsbUtil : KoinComponent {
                     excludedPaths,
                     numberFileCount,
                     songList,
-                    treeNode
+                    songMap,
+                    treeNode,
+                    isCheckDB,
+                    songInDb,
+                    albumInDb,
+                    favoriteInDb,
+                    songInAlbumInDb
                 )
             }
         }
@@ -155,7 +258,7 @@ object UsbUtil : KoinComponent {
 
     private fun getSongFromPath(path: String): Song {
         val mediaStoreID = context.getMediaStoreIdFromPath(path)
-        val title = path.getFilenameFromPath()
+        val title = context.getTitle(path) ?: path.getFilenameFromPath()
 
         val artist = context.getArtist(path)
         val duration = context.getDuration(path)
@@ -194,25 +297,30 @@ object UsbUtil : KoinComponent {
         songList: ArrayList<Song>,
         songMap: HashMap<Int, Song>,
         treeNode: TreeNode,
+        songInDb: MutableStateFlow<List<Song>>,
     ) {
-        Timber.e("===========START SCAN ALL MEDIA FILES NOT METADATA FROM USB ID: $rootPath============")
-
         if (rootPath.isEmpty()) {
-            Timber.i("rootPath is empty")
             return
         }
-
-        val rootFile = File(rootPath)
-        val numberFileCount = IntNumber(0)
-        findAudioFilesNotMetaData(
-            rootFile,
-            pathsToIgnore,
-            numberFileCount,
-            songList,
-            songMap,
-            treeNode
-        )
-        musicProvider.notifyDataChanged()
+        CoroutineScope(Dispatchers.IO).launch {
+            if (DBHelper.getAllSongFromUsb(rootPath.getUsbID()).isNotEmpty()) {
+                Timber.d("Have song in DB before")
+                songInDb.value = DBHelper.getAllSongFromUsb(rootPath.getUsbID())
+            } else {
+                Timber.d("Start scan not meta data")
+                val rootFile = File(rootPath)
+                val numberFileCount = IntNumber(0)
+                findAudioFilesNotMetaData(
+                    rootFile,
+                    pathsToIgnore,
+                    numberFileCount,
+                    songList,
+                    songMap,
+                    treeNode
+                )
+            }
+            musicProvider.notifyDataChanged()
+        }
 
         if (songList.isEmpty()) {
             Timber.e("Have no song in usb: $rootPath")
@@ -247,11 +355,8 @@ object UsbUtil : KoinComponent {
                 val song = getSongNotMetaDataFromPath(path)
                 songList.add(song)
                 songMap[path.hashCode()] = song
-
-
                 numberFileCount.increase()
                 TreeNode.createTree(listOf(path), treeNode)
-//                musicProvider.notifyDataChanged()
             } else {
                 Timber.i("$path is NOT audio")
             }
@@ -288,5 +393,9 @@ object UsbUtil : KoinComponent {
             listItems.add(listItem)
         }
         return listItems
+    }
+
+    fun getAlbumCoverUri(albumTitle: String): Uri? {
+        return context.getAlbumArtUriFromTitle(albumTitle = albumTitle)
     }
 }

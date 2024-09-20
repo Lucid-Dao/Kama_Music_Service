@@ -8,7 +8,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbManager
 import android.os.Binder
 import android.os.Build
@@ -35,7 +34,6 @@ import com.kanavi.automotive.kama.kama_music_service.common.constant.MediaConsta
 import com.kanavi.automotive.kama.kama_music_service.common.extension.toMediaSessionQueue
 import com.kanavi.automotive.kama.kama_music_service.common.util.DBHelper
 import com.kanavi.automotive.kama.kama_music_service.common.util.ShuffleHelper.makeShuffleList
-import com.kanavi.automotive.kama.kama_music_service.data.database.model.album.Album
 import com.kanavi.automotive.kama.kama_music_service.data.database.model.song.Song
 import com.kanavi.automotive.kama.kama_music_service.data.database.model.song.Song.Companion.emptySong
 import com.kanavi.automotive.kama.kama_music_service.service.mediaPlayback.MediaSessionCallback
@@ -52,6 +50,7 @@ import kotlinx.coroutines.Dispatchers.Main
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import timber.log.Timber
@@ -340,13 +339,38 @@ class MusicService : MediaBrowserServiceCompat(), Playback.PlaybackCallbacks, Ko
 
             else -> {
                 Timber.d("load items for: $parentId")
+                //100->result
+                ////full -> full - 100
                 result.sendResult(musicProvider.getChildren(parentId))
             }
         }
     }
 
     override fun onCustomAction(action: String, extras: Bundle?, result: Result<Bundle>) {
-        super.onCustomAction(action, extras, result)
+        Timber.d("action is: $action")
+        when(action){
+            ADD_FAVORITE -> {
+                result.detach()
+                val path = extras?.getString(EXTRA_SONG_PATH)
+                val isFavorite = extras?.getBoolean(EXTRA_FAVORITE_ENABLE)
+                Timber.d("path song favorite: $path")
+                if (path != null) {
+                    try {
+                        CoroutineScope(Main).launch {
+                            val favorite = withContext(IO) {
+                                DBHelper.updateDataFavorite(path, isFavorite?: false)
+                            }
+                            val bundle = Bundle()
+                            bundle.putBoolean(EXTRA_SONG_PATH, favorite)
+                            result.sendResult(bundle)
+                        }
+                    }catch (e: Exception){
+                        result.sendError(null)
+                    }
+                }
+            }
+            else -> super.onCustomAction(action, extras, result)
+        }
     }
 
     fun openQueue(
@@ -656,36 +680,8 @@ class MusicService : MediaBrowserServiceCompat(), Playback.PlaybackCallbacks, Ko
     }
 
     fun updateFavoriteChange(path: String, category: String) {
-        DBHelper.updateDataFavorite(path)
-        val currentUsbSource = musicProvider.getUsbSource()
-
-        //update data in map
-//        val song = currentUsbSource?.songMap?.get(path.hashCode())
-//        if (song != null) {
-//            song.favorite = !song.favorite
-//            currentUsbSource.songMap[path.hashCode()] = song
-//        }
-
-        // neu dang trong man favorite update lai queue
-//        if(category == MEDIA_ID_MUSICS_BY_FAVORITE){
-//            val tracks = musicProvider.getUsbSource()?.songs
-//            val tracksFavorite = tracks?.filter {
-//                it.favorite
-//            }
-//
-//            tracksFavorite?.let {
-//                path.let {
-//                    playingQueue.addAll(tracksFavorite)
-//                    var songIndex = MusicUtil.indexOfSongInList(tracksFavorite, path)
-//                    if (songIndex == -1) {
-//                        songIndex = 0
-//                    }
-//                    openQueue(playingQueue, songIndex, true)
-//                }
-//            }
-//        }
-
-        updateMediaSessionMetaData({}, category)
+//        DBHelper.updateDataFavorite(path)
+//        updateMediaSessionMetaData({}, category)
     }
 
     @SuppressLint("CheckResult")
@@ -1016,9 +1012,11 @@ class MusicService : MediaBrowserServiceCompat(), Playback.PlaybackCallbacks, Ko
                 or PlaybackStateCompat.ACTION_STOP
                 or PlaybackStateCompat.ACTION_SEEK_TO)
 
-
-        const val ADD_FAVORITE = "$PACKAGE_NAME.ADD_FAVORITE"
-        const val METADATA_KEY_FAVORITE = "Favorite"
+        //ADD FAVORITE
+        private const val ADD_FAVORITE = "$PACKAGE_NAME.ADD_FAVORITE"
+        private const val METADATA_KEY_FAVORITE = "KEY_FAVORITE"
+        private const val EXTRA_FAVORITE_ENABLE = "FAVORITE_ENABLE"
+        private const val EXTRA_SONG_PATH = "SONG_PATH"
 
     }
 }

@@ -21,7 +21,7 @@ object DBHelper : KoinComponent {
 
     private val favoriteRepository: FavoriteRepository by inject()
 
-    fun updateAllDatabase(listSong: ArrayList<Song>) = CoroutineScope(Dispatchers.IO).launch {
+    suspend fun updateAllDatabase(listSong: ArrayList<Song>) {
 
         songRepository.insertAll(listSong)
 
@@ -32,17 +32,23 @@ object DBHelper : KoinComponent {
     }
 
 
-    fun updateDataFavorite(path: String) = CoroutineScope(Dispatchers.IO).launch {
-        val song = songRepository.getSongFromPath(path)
+    suspend fun updateDataFavorite(path: String, isFavorite: Boolean): Boolean {
+        return withContext(Dispatchers.IO) {
+            val song = songRepository.getSongFromPath(path)
 
-        if (song.favorite) {
-            val favorite = Favorite(id = 0, pathSong = path, usbId = song.usbId)
-            favoriteRepository.insert(favorite)
-        } else {
-            favoriteRepository.removeFavoriteSong(path)
+            if (song.favorite) {
+                val favorite = Favorite(id = 0, pathSong = path, usbId = song.usbId)
+                favoriteRepository.insert(favorite)
+            } else {
+                favoriteRepository.removeFavoriteSong(path)
+            }
+            song.favorite = isFavorite
+            songRepository.update(song)
+            Timber.d("favorite size: ${favoriteRepository.getAllFavoriteByUsbID(song.usbId).size}")
+
+            return@withContext song.favorite
         }
-        song.favorite = !song.favorite
-        songRepository.update(song)
+
     }
 
     suspend fun getAllSongFromAlbum(album: String) = withContext(Dispatchers.IO) { songRepository.getListSongFromAlbum(album)}
@@ -102,15 +108,16 @@ object DBHelper : KoinComponent {
             updateSongFavorite(usbID)
 
             val songs = songRepository.getAllByUsbID(usbID)
-            val albums = albumRepository.getAllByUsbID(usbID)
             val favorites = favoriteRepository.getAllFavoriteByUsbID(usbID)
 
-            Timber.e("Total after clean---- song: ${songs.size}, album: ${albums.size}, favorite: ${favorites.size}")
+            Timber.e("Total after clean---- song: ${songs.size}, favorite: ${favorites.size}")
             Timber.d("****************FINISH CLEANUP DATABASE FOR USB: $usbID****************")
         }
 
-    private fun updateSongFavorite(usbId: String) = CoroutineScope(Dispatchers.IO).launch {
+    private suspend fun updateSongFavorite(usbId: String) {
         val favoriteList = favoriteRepository.getAllFavoriteByUsbID(usbId)
+        Timber.e("usbId: $usbId, pathFavorite: ${favoriteList.size}")
+
         favoriteList.forEach { favorite ->
             val song = songRepository.getSongFromPath(favorite.pathSong)
             song.favorite = true

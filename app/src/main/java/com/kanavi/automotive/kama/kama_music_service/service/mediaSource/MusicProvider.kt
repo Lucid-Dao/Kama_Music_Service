@@ -8,20 +8,9 @@ import com.kanavi.automotive.kama.kama_music_service.common.constant.MediaConsta
 import com.kanavi.automotive.kama.kama_music_service.common.constant.MediaConstant.MEDIA_ID_MUSICS_BY_FILE
 import com.kanavi.automotive.kama.kama_music_service.common.constant.MediaConstant.MEDIA_ID_MUSICS_BY_SONGS
 import com.kanavi.automotive.kama.kama_music_service.common.extension.isAudioFast
-import com.kanavi.automotive.kama.kama_music_service.common.util.DBHelper
-import com.kanavi.automotive.kama.kama_music_service.common.util.MusicUtil
-import com.kanavi.automotive.kama.kama_music_service.data.database.model.album.Album
+import com.kanavi.automotive.kama.kama_music_service.common.util.UsbUtil
 import com.kanavi.automotive.kama.kama_music_service.data.database.model.song.Song
 import com.kanavi.automotive.kama.kama_music_service.service.MusicService
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.combineLatest
-import kotlinx.coroutines.launch
-import org.koin.core.component.KoinComponent
-import org.koin.core.logger.Logger
 import timber.log.Timber
 import java.lang.ref.WeakReference
 
@@ -65,7 +54,7 @@ class MusicProvider(private val mContext: Context) {
     }
 
     fun removeUsbSource(usbId: String) {
-        if(usbSourceMap[usbId]!=null){
+        if (usbSourceMap[usbId] != null) {
             Timber.e("Map has UsbSource")
         }
         Timber.e("before removeUsbSource: $usbId => ${usbSourceMap.keys}")
@@ -139,20 +128,6 @@ class MusicProvider(private val mContext: Context) {
         }
 
         Timber.d("mediaItems size: ${mediaItems.size}")
-//        if (mediaItems.size == 0 || selectedUsbID.isEmpty()) {
-//            //add empty item to show empty view
-//            mediaItems.add(
-//                0,
-//                UsbMediaItem.with(mContext)
-//                    .mediaID(currentParentID)
-//                    .setExtraProperties(
-//                        isEmptyItem = true,
-//                        isUsbAttached = selectedUsbID,
-//                        currentUsbSelected = selectedUsbID
-//                    )
-//                    .build()
-//            )
-//        }
 
         return mediaItems.take(300)
     }
@@ -160,9 +135,8 @@ class MusicProvider(private val mContext: Context) {
     private fun getSongChildren(usbID: String? = null): List<MediaBrowserCompat.MediaItem> {
         val mediaItems = mutableListOf<MediaBrowserCompat.MediaItem>()
 
-        val checkLoading = getUsbSource()?.isLoading
-//        if(checkLoading==)
-        val resources: List<Song>? = getUsbSource()?.songInDB?.value
+        val resources: List<Song>? = getUsbSource()?.songInDB?.value?.sortedBy { it.title }
+
         resources?.forEach {
             mediaItems.add(
                 getPlayableSong(it, MEDIA_ID_MUSICS_BY_SONGS)
@@ -173,7 +147,8 @@ class MusicProvider(private val mContext: Context) {
 
     private fun getSongChildrenFavorite(usbID: String? = null): List<MediaBrowserCompat.MediaItem> {
         val mediaItems = mutableListOf<MediaBrowserCompat.MediaItem>()
-        val resources: List<Song>? = getUsbSource()?.songFavoriteInDB?.value
+        val resources: List<Song>? = getUsbSource()?.songFavoriteInDB?.value?.sortedBy { it.title }
+        Timber.d("resources favorite: ${resources?.size}")
         resources?.forEach {
             mediaItems.add(
                 getPlayableSong(it, MEDIA_ID_MUSICS_BY_FAVORITE)
@@ -204,10 +179,7 @@ class MusicProvider(private val mContext: Context) {
             val path = it.value
             Timber.i("checking path: $path")
             if (path.isAudioFast()) {
-                lateinit var song: Song
-                CoroutineScope(Dispatchers.Main + SupervisorJob()).launch {
-                    song = DBHelper.getSongFromPath(path)
-                }
+                val song = getUsbSource()?.songMap?.get(path.hashCode())
                 listSong.add(song)
             } else {
                 listFolderPath.add(path)
@@ -247,19 +219,23 @@ class MusicProvider(private val mContext: Context) {
         usbID: String? = null
     ): List<MediaBrowserCompat.MediaItem> {
         val mediaItems = mutableListOf<MediaBrowserCompat.MediaItem>()
-        val albums = getUsbSource()?.albumInDB?.value
+        val albums = getUsbSource()?.albumInDB?.value?.sortedBy { it.title }
         if (albums != null) {
             for (album in albums) {
                 val albumPath = MediaIDHelper.createMediaID(
                     album.id.toString(),
                     mediaId
                 )
+                var albumIcons = UsbUtil.getAlbumCoverUri(album.title)
+                if(albumIcons == null){
+                    albumIcons = getUsbSource()?.songInAlbumDB?.get(album.id)?.firstOrNull()?.getUri()
+                }
                 mediaItems.add(
                     UsbMediaItem.with(mContext)
                         .mediaID(albumPath)
                         .title(album.title)
                         .subTitle(album.artist)
-                        .icon(MusicUtil.getMediaStoreAlbumCoverUri(album.id))
+                        .icon(albumIcons)
                         .asBrowsable()
                         .setExtraProperties(
                             isUsbAttached = selectedUsbID.isNotEmpty(),
@@ -278,7 +254,6 @@ class MusicProvider(private val mContext: Context) {
         usbID: String? = null
     ): List<MediaBrowserCompat.MediaItem> {
 
-//        Timber.d("mediaId: $mediaId, usbID: $usbID")
 
         val mediaItems = mutableListOf<MediaBrowserCompat.MediaItem>()
 //        val albumId = MediaIDHelper.extractMusicID(mediaId)

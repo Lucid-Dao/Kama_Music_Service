@@ -10,12 +10,11 @@ import kotlinx.coroutines.flow.StateFlow
 import timber.log.Timber
 
 class UsbSource(
-    private val usbID: String,
+    private val rootPath: String,
 ) : AbstractMusicSource() {
-    var isLoading = true
 
-    // music
     var songs: ArrayList<Song> = arrayListOf()
+    var songMap: HashMap<Int, Song> = HashMap()
     var treeNode: TreeNode = TreeNode("")
 
     private val _songInDB = MutableStateFlow<List<Song>>(emptyList())
@@ -28,22 +27,22 @@ class UsbSource(
     val songFavoriteInDB = _songFavoriteInDB as StateFlow<List<Song>>
 
     private val _songInAlbumDB = HashMap<Long, List<Song>>()
-//        MutableStateFlow<List<Song>>(emptyList())
     val songInAlbumDB = _songInAlbumDB
-    //
+
+
     override suspend fun load() {
 
-        UsbUtil.scanAllMusicFromUsb(
-            usbID,
-            emptyList(),
-            songs,
-            treeNode,
-            _songInDB,
-            _albumInDB,
-            _songFavoriteInDB,
-            _songInAlbumDB
-        )
-        isLoading = false
+            UsbUtil.scanAllMusicFromUsb(
+                rootPath,
+                emptyList(),
+                songs,
+                songMap,
+                treeNode,
+                _songInDB,
+                _albumInDB,
+                _songFavoriteInDB,
+                _songInAlbumDB
+            )
     }
 
     override fun iterator(): Iterator<Song> {
