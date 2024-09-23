@@ -14,7 +14,7 @@ import com.kanavi.automotive.kama.kama_music_service.common.constant.DatabaseEnt
     indices = [Index(value = [FAVORITE_PATH_SONG], unique = true)]
 )
 data class Favorite(
-    @PrimaryKey
+    @PrimaryKey(autoGenerate = true)
     @ColumnInfo(name = FAVORITE_ID)
     var id: Long,
     @ColumnInfo(name = FAVORITE_PATH_SONG)

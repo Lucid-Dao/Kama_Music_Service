@@ -111,7 +111,6 @@ class MusicProvider(private val mContext: Context) {
             }
 
             MEDIA_ID_MUSICS_BY_FAVORITE -> {
-                // se lam tiep trong nay or mai
                 Timber.d("MEDIA_ID_MUSICS_BY_FAVORITE")
                 mediaItems.addAll(getSongChildrenFavorite(rootPath))
 
@@ -135,7 +134,7 @@ class MusicProvider(private val mContext: Context) {
     private fun getSongChildren(usbID: String? = null): List<MediaBrowserCompat.MediaItem> {
         val mediaItems = mutableListOf<MediaBrowserCompat.MediaItem>()
 
-        val resources: List<Song>? = getUsbSource()?.songInDB?.value?.sortedBy { it.title }
+        val resources: List<Song>? = getUsbSource()?.songInDB?.value
 
         resources?.forEach {
             mediaItems.add(
@@ -147,7 +146,7 @@ class MusicProvider(private val mContext: Context) {
 
     private fun getSongChildrenFavorite(usbID: String? = null): List<MediaBrowserCompat.MediaItem> {
         val mediaItems = mutableListOf<MediaBrowserCompat.MediaItem>()
-        val resources: List<Song>? = getUsbSource()?.songFavoriteInDB?.value?.sortedBy { it.title }
+        val resources: List<Song>? = getUsbSource()?.songFavoriteInDB?.value
         Timber.d("resources favorite: ${resources?.size}")
         resources?.forEach {
             mediaItems.add(

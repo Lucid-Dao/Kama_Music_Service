@@ -2,7 +2,6 @@ package com.kanavi.automotive.kama.kama_music_service.common.util
 
 import android.content.Context
 import android.net.Uri
-import com.kanavi.automotive.kama.kama_music_service.common.constant.MediaConstant
 import com.kanavi.automotive.kama.kama_music_service.common.constant.MediaConstant.MEDIA_ID_MUSICS_BY_ALBUM
 import com.kanavi.automotive.kama.kama_music_service.common.constant.MediaConstant.MEDIA_ID_MUSICS_BY_FAVORITE
 import com.kanavi.automotive.kama.kama_music_service.common.constant.MediaConstant.MEDIA_ID_MUSICS_BY_FILE
@@ -25,7 +24,6 @@ import com.kanavi.automotive.kama.kama_music_service.common.extension.isAudioFas
 import com.kanavi.automotive.kama.kama_music_service.data.database.model.ListItem
 import com.kanavi.automotive.kama.kama_music_service.data.database.model.album.Album
 import com.kanavi.automotive.kama.kama_music_service.data.database.model.song.Song
-import com.kanavi.automotive.kama.kama_music_service.service.mediaSource.MediaIDHelper
 import com.kanavi.automotive.kama.kama_music_service.service.mediaSource.MusicProvider
 import com.kanavi.automotive.kama.kama_music_service.service.mediaSource.TreeNode
 import kotlinx.coroutines.CoroutineScope
@@ -59,14 +57,15 @@ object UsbUtil : KoinComponent {
         albumInDb: MutableStateFlow<List<Album>>,
         favoriteInDb: MutableStateFlow<List<Song>>,
         songInAlbumInDb: HashMap<Long, List<Song>>
-    ) {
+    ) = withContext(Dispatchers.IO) {
+        Timber.d("get data from Database")
         val usbId = rootPath.getUsbID()
         songInDb.value = DBHelper.getAllSongFromUsb(usbId)
-        albumInDb.value = DBHelper.getAllAlbumFromUsb(usbId)
         val favoriteList = DBHelper.getAllSongFavorite(usbId)
         if (favoriteList != null) {
             favoriteInDb.value = favoriteList
         }
+        albumInDb.value = DBHelper.getAllAlbumFromUsb(usbId)
         albumInDb.value.forEach {
             songInAlbumInDb[it.id] = DBHelper.getAllSongFromAlbum(it.title)
         }
@@ -137,10 +136,10 @@ object UsbUtil : KoinComponent {
 //                MediaConstant.MEDIA_ID_ROOT_USB
 //            )
             if (songList.isEmpty()) {
-                Timber.e("Have no song in usb: $rootPath")
+                Timber.e("No song in usb: $rootPath")
             }
-            DBHelper.updateAllDatabase(songList)
 
+            DBHelper.updateAllDatabase(songList)
             getDatafromDB(
                 rootPath,
                 songInDb,
@@ -149,23 +148,24 @@ object UsbUtil : KoinComponent {
                 songInAlbumInDb
             )
 
-            withContext(Dispatchers.Main) {
-                musicProvider.notifyDataChanged(
-                    listOf(
-                        MEDIA_ID_MUSICS_BY_SONGS,
-                        MEDIA_ID_MUSICS_BY_FILE,
-                        MEDIA_ID_MUSICS_BY_FAVORITE,
-                        MEDIA_ID_MUSICS_BY_ALBUM,
-                        musicProvider.currentParentID
-                    )
-                )
-            }
-            Timber.e("=============FINISH SCAN ALL MEDIA FILES FROM USB ID: $rootPath - size of list is ${songList.size}============")
+            Timber.d("Songs lastest: ${songInDb.value.size}")
+            Timber.d("Albums: ${albumInDb.value.size}")
+            Timber.d("Favorites: ${favoriteInDb.value.size}")
 
+            musicProvider.notifyDataChanged(
+                listOf(
+                    MEDIA_ID_MUSICS_BY_SONGS,
+                    MEDIA_ID_MUSICS_BY_FILE,
+                    MEDIA_ID_MUSICS_BY_FAVORITE,
+                    MEDIA_ID_MUSICS_BY_ALBUM,
+                    musicProvider.currentParentID
+                )
+            )
+            Timber.e("=============FINISH SCAN ALL MEDIA FILES FROM USB ID: $rootPath - size of list is ${songList.size}============")
         }
     }
 
-    private fun findAudioFiles(
+    private suspend fun findAudioFiles(
         file: File,
         excludedPaths: List<String>,
         numberFileCount: IntNumber,
@@ -189,10 +189,8 @@ object UsbUtil : KoinComponent {
             Timber.i("path in excludedPaths: $path")
             return
         }
-        Timber.d("Path is $path")
 
         if (file.isFile) {
-            Timber.d("File is file: $file")
             if (path.isAudioFast()) {
                 Timber.i("$path is a audio ")
                 val song = getSongFromPath(path)
@@ -209,29 +207,33 @@ object UsbUtil : KoinComponent {
 //                            MediaConstant.MEDIA_ID_ROOT_USB
 //                        )
                         isCheckDB[0] = true
-                        CoroutineScope(Dispatchers.IO).launch {
-                            Timber.d("notify 100 items")
-                            DBHelper.updateAllDatabase(songList)
-                            getDatafromDB(
-                                path,
-                                songInDb,
-                                albumInDb,
-                                favoriteInDb,
-                                songInAlbumInDb
-                            )
-
-                            withContext(Dispatchers.Main) {
-                                musicProvider.notifyDataChanged(
-                                    listOf(
-                                        MEDIA_ID_MUSICS_BY_SONGS,
-                                        MEDIA_ID_MUSICS_BY_FILE,
-                                        MEDIA_ID_MUSICS_BY_FAVORITE,
-                                        MEDIA_ID_MUSICS_BY_ALBUM,
-                                        musicProvider.currentParentID
-                                    )
-                                )
-                            }
+                        Timber.d("notify 100 items")
+                        //sort 100 items
+                        val list: List<Song> =songList.sortedBy { it.title.lowercase() }
+                        list.forEach {
+                            Timber.d("Song sortedBy with title: ${it.title}")
                         }
+                        songList.clear()
+                        songList.addAll(list)
+                        DBHelper.updateAllDatabase(songList)
+
+                        getDatafromDB(
+                            path,
+                            songInDb,
+                            albumInDb,
+                            favoriteInDb,
+                            songInAlbumInDb
+                        )
+
+                        musicProvider.notifyDataChanged(
+                            listOf(
+                                MEDIA_ID_MUSICS_BY_SONGS,
+//                                        MEDIA_ID_MUSICS_BY_FILE,
+//                                        MEDIA_ID_MUSICS_BY_FAVORITE,
+//                                        MEDIA_ID_MUSICS_BY_ALBUM,
+                                musicProvider.currentParentID
+                            )
+                        )
                     }
                 }
             } else {

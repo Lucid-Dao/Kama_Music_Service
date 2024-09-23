@@ -30,6 +30,7 @@ import com.kanavi.automotive.kama.kama_music_service.R
 import com.kanavi.automotive.kama.kama_music_service.common.constant.MediaConstant
 import com.kanavi.automotive.kama.kama_music_service.common.constant.MediaConstant.KEY_USB_ATTACHED
 import com.kanavi.automotive.kama.kama_music_service.common.constant.MediaConstant.MEDIA_ID_ATTACHED_STATE
+import com.kanavi.automotive.kama.kama_music_service.common.constant.MediaConstant.MEDIA_ID_MUSICS_BY_FAVORITE
 import com.kanavi.automotive.kama.kama_music_service.common.constant.MediaConstant.MEDIA_ID_RECENT_ROOT
 import com.kanavi.automotive.kama.kama_music_service.common.extension.toMediaSessionQueue
 import com.kanavi.automotive.kama.kama_music_service.common.util.DBHelper
@@ -353,16 +354,22 @@ class MusicService : MediaBrowserServiceCompat(), Playback.PlaybackCallbacks, Ko
                 result.detach()
                 val path = extras?.getString(EXTRA_SONG_PATH)
                 val isFavorite = extras?.getBoolean(EXTRA_FAVORITE_ENABLE)
-                Timber.d("path song favorite: $path")
+                Timber.d("path song favorite: $path, isFavorite: $isFavorite")
                 if (path != null) {
                     try {
                         CoroutineScope(Main).launch {
                             val favorite = withContext(IO) {
                                 DBHelper.updateDataFavorite(path, isFavorite?: false)
                             }
+                            musicProvider.getUsbSource()?.favoriteInDB()?.value = favorite.second!!
                             val bundle = Bundle()
-                            bundle.putBoolean(EXTRA_SONG_PATH, favorite)
+                            Timber.d("favorite in song: $favorite")
+                            bundle.putBoolean(EXTRA_SONG_PATH, favorite.first)
                             result.sendResult(bundle)
+
+                            musicProvider.notifyDataChanged(
+                                listOf(MEDIA_ID_MUSICS_BY_FAVORITE)
+                            )
                         }
                     }catch (e: Exception){
                         result.sendError(null)

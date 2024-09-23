@@ -23,7 +23,7 @@ interface SongDAO {
     @Query("SELECT * FROM $SONG_TABLE_NAME")
     suspend fun getAll(): List<Song>
 
-    @Query("SELECT * FROM $SONG_TABLE_NAME WHERE $USB_ID = :usbId")
+    @Query("SELECT * FROM $SONG_TABLE_NAME WHERE $USB_ID = :usbId ORDER BY SONG_DATE_ADDED ASC")
     suspend fun getAllByUsbID(usbId: String): List<Song>
 
     @Query("SELECT * FROM $SONG_TABLE_NAME WHERE $SONG_ARTIST_ID = :artistId")

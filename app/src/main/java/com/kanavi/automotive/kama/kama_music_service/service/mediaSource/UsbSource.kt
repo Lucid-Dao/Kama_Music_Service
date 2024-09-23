@@ -29,6 +29,9 @@ class UsbSource(
     private val _songInAlbumDB = HashMap<Long, List<Song>>()
     val songInAlbumDB = _songInAlbumDB
 
+    fun favoriteInDB(): MutableStateFlow<List<Song>> {
+        return _songFavoriteInDB
+    }
 
     override suspend fun load() {
 

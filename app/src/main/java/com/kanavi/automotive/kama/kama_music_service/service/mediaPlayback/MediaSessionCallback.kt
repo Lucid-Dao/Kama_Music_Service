@@ -1,26 +1,18 @@
 package com.kanavi.automotive.kama.kama_music_service.service.mediaPlayback
 
-import android.content.Context
 import android.os.Bundle
 import android.support.v4.media.session.MediaSessionCompat
 import com.kanavi.automotive.kama.kama_music_service.common.constant.MediaConstant
-import com.kanavi.automotive.kama.kama_music_service.common.extension.getAlbumIdAndArtistIdFromPath
 import com.kanavi.automotive.kama.kama_music_service.common.extension.getParentPath
 import com.kanavi.automotive.kama.kama_music_service.common.extension.isAudioFast
-import com.kanavi.automotive.kama.kama_music_service.common.util.DBHelper
 import com.kanavi.automotive.kama.kama_music_service.common.util.MusicUtil
 import com.kanavi.automotive.kama.kama_music_service.data.database.model.song.Song
 import com.kanavi.automotive.kama.kama_music_service.service.MusicService
-import com.kanavi.automotive.kama.kama_music_service.service.MusicService.Companion.ADD_FAVORITE
 import com.kanavi.automotive.kama.kama_music_service.service.MusicService.Companion.CYCLE_REPEAT
 import com.kanavi.automotive.kama.kama_music_service.service.MusicService.Companion.TOGGLE_SHUFFLE
 import com.kanavi.automotive.kama.kama_music_service.service.mediaSource.MediaIDHelper
 import com.kanavi.automotive.kama.kama_music_service.service.mediaSource.MusicProvider
 import com.kanavi.automotive.kama.kama_music_service.service.mediaSource.TreeNode
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import timber.log.Timber
@@ -29,13 +21,11 @@ class MediaSessionCallback(
     private val musicService: MusicService
 ) : MediaSessionCompat.Callback(), KoinComponent {
     private val musicProvider: MusicProvider by inject()
-    private val context: Context by inject()
 
     override fun onPlayFromMediaId(mediaId: String?, extras: Bundle?) {
         super.onPlayFromMediaId(mediaId, extras)
         val musicId = MediaIDHelper.extractMusicID(mediaId!!)
         Timber.d("onPlayFromMediaId: $mediaId  musicPath: $musicId")
-
 
         val playingQueue: ArrayList<Song> = ArrayList()
         when (MediaIDHelper.extractCategory(mediaId)) {
@@ -46,10 +36,8 @@ class MediaSessionCallback(
                     musicProvider.getUsbSource()?.treeNode?.let {
                         TreeNode.findNode(it, folderPath)?.children?.forEach { node ->
                             node.value.isAudioFast().let {
-                                lateinit var song: Song
-                                CoroutineScope(Dispatchers.Main + SupervisorJob()).launch {
-                                    song = DBHelper.getSongFromPath(node.value)
-                                }
+                                val song =
+                                    musicProvider.getUsbSource()?.songMap?.get(node.value.hashCode())
                                 if (song != null) {
                                     Timber.d("add song to playlist: $song")
                                     playingQueue.add(song)
@@ -81,45 +69,30 @@ class MediaSessionCallback(
 
             MediaConstant.MEDIA_ID_MUSICS_BY_ALBUM -> {
                 val currentSongPath = MediaIDHelper.extractMusicID(mediaId)
-                val currentAlbumId = if (currentSongPath != null) {
-                    val (albumId, _) = context.getAlbumIdAndArtistIdFromPath(currentSongPath)
-                    albumId
-                } else {
-                    0L
+                val song = musicProvider.getUsbSource()?.songMap?.get(currentSongPath.hashCode())
+
+
+                val tracks = musicProvider.getUsbSource()?.songInAlbumDB?.get(song?.id)
+                val songsInSameAlbum = mutableListOf<Song>()
+                tracks?.forEach {
+                    songsInSameAlbum.add(it)
                 }
+                playingQueue.addAll(songsInSameAlbum)
 
-                val tracks = musicProvider.getUsbSource()?.songs
-                tracks?.let { allSongs ->
-                    val songsInSameAlbum = mutableListOf<Song>()
-                    allSongs.forEach { song ->
-                        val songPath = song.path
-                        val (albumId, _) = context.getAlbumIdAndArtistIdFromPath(songPath)
-                        if (albumId == currentAlbumId) {
-                            songsInSameAlbum.add(song)
-                        }
-                    }
-
-                    playingQueue.addAll(songsInSameAlbum)
-
-                    var songIndex = MusicUtil.indexOfSongInList(songsInSameAlbum, musicId!!)
-                    if (songIndex == -1) {
-                        songIndex = 0
-                    }
-
-                    musicService.openQueue(playingQueue, songIndex, true)
+                var songIndex = MusicUtil.indexOfSongInList(songsInSameAlbum, musicId!!)
+                if (songIndex == -1) {
+                    songIndex = 0
                 }
+                musicService.openQueue(playingQueue, songIndex, true)
             }
 
             MediaConstant.MEDIA_ID_MUSICS_BY_FAVORITE -> {
-                val tracks = musicProvider.getUsbSource()?.songs
-                val tracksFavorite = tracks?.filter {
-                    it.favorite
-                }
+                val tracks = musicProvider.getUsbSource()?.songFavoriteInDB?.value
 
-                tracksFavorite?.let {
+                tracks?.let {
                     musicId?.let {
-                        playingQueue.addAll(tracksFavorite)
-                        var songIndex = MusicUtil.indexOfSongInList(tracksFavorite, musicId)
+                        playingQueue.addAll(tracks)
+                        var songIndex = MusicUtil.indexOfSongInList(tracks, musicId)
                         if (songIndex == -1) {
                             songIndex = 0
                         }
@@ -185,15 +158,6 @@ class MediaSessionCallback(
                 Timber.d("TOGGLE SHUFFLE")
                 musicService.toggleShuffle()
                 musicService.updateMediaSessionPlaybackState()
-            }
-
-            ADD_FAVORITE -> {
-                Timber.d("Update Favorite")
-                val path = extras?.getString("song_path")
-                val category = extras?.getString("category_from")
-                if (path != null && category != null) {
-                    musicService.updateFavoriteChange(path, category)
-                }
             }
 
             else -> {
