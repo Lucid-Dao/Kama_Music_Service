@@ -7,7 +7,7 @@ import kotlinx.coroutines.withContext
 
 class SongRepository(private val songDAO: SongDAO) {
 
-    fun getListSongFromArtist(artistId: Long) = songDAO.getListSongFromArtist(artistId)
+    fun getListSongFromArtist(artist: String) = songDAO.getListSongFromArtist(artist)
     fun getListSongFromAlbum(album: String) = songDAO.getListSongFromAlbum(album)
     fun getListSongFromFolder(folderName: String) = songDAO.getListSongFromFolder(folderName)
     fun getSongWithMediaStoreId(mediaStoreId: Long) = songDAO.getSongWithMediaStoreId(mediaStoreId)

@@ -16,9 +16,9 @@ import com.kanavi.automotive.kama.kama_music_service.common.constant.DatabaseEnt
 import com.kanavi.automotive.kama.kama_music_service.common.constant.DatabaseEntry.USB_ID
 import com.kanavi.automotive.kama.kama_music_service.common.extension.sortSafely
 
-@Entity(tableName = ARTIST_TABLE_NAME, indices = [(Index(value = [ARTIST_ID], unique = true))])
+@Entity(tableName = ARTIST_TABLE_NAME, indices = [(Index(value = [ARTIST_TITLE], unique = true))])
 data class Artist(
-    @PrimaryKey
+    @PrimaryKey(autoGenerate = true)
     @ColumnInfo(name = ARTIST_ID)
     var id: Long,
     @ColumnInfo(name = ARTIST_TITLE) val title: String,

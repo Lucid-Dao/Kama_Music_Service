@@ -149,7 +149,8 @@ object UsbMediaItem {
             const val ITEM_SONG = 1
             const val ITEM_FOLDER = 2
             const val ITEM_ALBUM = 3
-            const val ITEM_FAVORITE = 4
+            const val ITEM_ARTIST = 4
+            const val ITEM_FAVORITE = 5
         }
 
     }

@@ -26,8 +26,8 @@ interface SongDAO {
     @Query("SELECT * FROM $SONG_TABLE_NAME WHERE $USB_ID = :usbId ORDER BY SONG_DATE_ADDED ASC")
     suspend fun getAllByUsbID(usbId: String): List<Song>
 
-    @Query("SELECT * FROM $SONG_TABLE_NAME WHERE $SONG_ARTIST_ID = :artistId")
-    fun getListSongFromArtist(artistId: Long): List<Song>
+    @Query("SELECT * FROM $SONG_TABLE_NAME WHERE $SONG_ARTIST = :artist")
+    fun getListSongFromArtist(artist: String): List<Song>
 
     @Query("SELECT * FROM $SONG_TABLE_NAME WHERE $SONG_ALBUM = :album")
     fun getListSongFromAlbum(album: String): List<Song>

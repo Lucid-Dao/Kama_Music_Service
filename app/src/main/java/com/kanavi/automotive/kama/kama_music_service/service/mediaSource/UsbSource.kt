@@ -4,6 +4,7 @@ import android.support.v4.media.MediaMetadataCompat
 import androidx.annotation.IntDef
 import com.kanavi.automotive.kama.kama_music_service.common.util.UsbUtil
 import com.kanavi.automotive.kama.kama_music_service.data.database.model.album.Album
+import com.kanavi.automotive.kama.kama_music_service.data.database.model.artist.Artist
 import com.kanavi.automotive.kama.kama_music_service.data.database.model.song.Song
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -14,20 +15,31 @@ class UsbSource(
 ) : AbstractMusicSource() {
 
     var songs: ArrayList<Song> = arrayListOf()
+    //Folders
     var songMap: HashMap<Int, Song> = HashMap()
     var treeNode: TreeNode = TreeNode("")
 
+    //Songs
     private val _songInDB = MutableStateFlow<List<Song>>(emptyList())
     val songInDB = _songInDB as StateFlow<List<Song>>
 
+    //Albums
     private val _albumInDB = MutableStateFlow<List<Album>>(emptyList())
     val albumInDB = _albumInDB as StateFlow<List<Album>>
 
-    private val _songFavoriteInDB = MutableStateFlow<List<Song>>(emptyList())
-    val songFavoriteInDB = _songFavoriteInDB as StateFlow<List<Song>>
-
     private val _songInAlbumDB = HashMap<Long, List<Song>>()
     val songInAlbumDB = _songInAlbumDB
+
+    //Artists
+    private val _artistInDB = MutableStateFlow<List<Artist>>(emptyList())
+    val artistInDB = _artistInDB as StateFlow<List<Artist>>
+
+    private val _songInArtistDB = HashMap<Long, List<Song>>()
+    val songInArtistDB = _songInArtistDB
+
+    //Favorites
+    private val _songFavoriteInDB = MutableStateFlow<List<Song>>(emptyList())
+    val songFavoriteInDB = _songFavoriteInDB as StateFlow<List<Song>>
 
     fun favoriteInDB(): MutableStateFlow<List<Song>> {
         return _songFavoriteInDB
@@ -43,8 +55,10 @@ class UsbSource(
                 treeNode,
                 _songInDB,
                 _albumInDB,
+                _artistInDB,
                 _songFavoriteInDB,
-                _songInAlbumDB
+                _songInAlbumDB,
+                _songInArtistDB
             )
     }
 

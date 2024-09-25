@@ -20,6 +20,7 @@ object MediaConstant {
     const val MEDIA_ID_MUSICS_BY_FILE = "__BY_FILE__"
     const val MEDIA_ID_MUSICS_BY_SONGS = "__BY_SONGS__"
     const val MEDIA_ID_MUSICS_BY_ALBUM = "__BY_ALBUM__"
+    const val MEDIA_ID_MUSICS_BY_ARTIST = "__BY_ARTIST__"
     const val MEDIA_ID_MUSICS_BY_FAVORITE = "__BY_FAVORITE__"
 
     val listOfMediaIdAlwaysHaveToNotifyChanged = emptyList<String>()

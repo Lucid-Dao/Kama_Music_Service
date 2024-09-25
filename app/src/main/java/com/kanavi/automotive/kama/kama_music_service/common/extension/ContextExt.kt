@@ -77,8 +77,8 @@ fun Context.getAlbumIdAndArtistIdFromPath(path: String): Pair<Long, Long> {
         val cursor = contentResolver.query(uri, projection, selection, selectionArgs, null)
         cursor?.use {
             if (cursor.moveToFirst()) {
-                albumId = cursor.getLong(MediaStore.Audio.AudioColumns.ALBUM_ID)
-                artistId = cursor.getLong(MediaStore.Audio.AudioColumns.ARTIST_ID)
+                albumId = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Audio.AudioColumns.ALBUM_ID))
+                artistId = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Audio.AudioColumns.ARTIST_ID))
             }
         }
     } catch (ignored: Exception) {
@@ -414,6 +414,5 @@ fun Context.getAlbumArtUriFromTitle(albumTitle: String): Uri? {
     }
     return null
 }
-
 
 

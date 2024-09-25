@@ -4,6 +4,7 @@ import android.content.Context
 import android.support.v4.media.MediaBrowserCompat
 import androidx.core.net.toUri
 import com.kanavi.automotive.kama.kama_music_service.common.constant.MediaConstant.MEDIA_ID_MUSICS_BY_ALBUM
+import com.kanavi.automotive.kama.kama_music_service.common.constant.MediaConstant.MEDIA_ID_MUSICS_BY_ARTIST
 import com.kanavi.automotive.kama.kama_music_service.common.constant.MediaConstant.MEDIA_ID_MUSICS_BY_FAVORITE
 import com.kanavi.automotive.kama.kama_music_service.common.constant.MediaConstant.MEDIA_ID_MUSICS_BY_FILE
 import com.kanavi.automotive.kama.kama_music_service.common.constant.MediaConstant.MEDIA_ID_MUSICS_BY_SONGS
@@ -110,6 +111,11 @@ class MusicProvider(private val mContext: Context) {
                 mediaItems.addAll(getAlbumChildren(mediaId, rootPath))
             }
 
+            MEDIA_ID_MUSICS_BY_ARTIST -> {
+                Timber.d("MEDIA_ID_MUSICS_BY_ARTIST")
+                mediaItems.addAll(getArtistChildren(mediaId, selectedUsbID))
+            }
+
             MEDIA_ID_MUSICS_BY_FAVORITE -> {
                 Timber.d("MEDIA_ID_MUSICS_BY_FAVORITE")
                 mediaItems.addAll(getSongChildrenFavorite(rootPath))
@@ -122,6 +128,9 @@ class MusicProvider(private val mContext: Context) {
 
                     mediaId.contains(MEDIA_ID_MUSICS_BY_ALBUM) ->
                         mediaItems.addAll(getAlbumSongChildren(mediaId, rootPath))
+
+                    mediaId.contains(MEDIA_ID_MUSICS_BY_ARTIST) ->
+                        mediaItems.addAll(getArtistSongChildren(mediaId, rootPath))
                 }
             }
         }
@@ -202,6 +211,7 @@ class MusicProvider(private val mContext: Context) {
                         .mediaID(folderMediaID)
                         .asBrowsable()
                         .title(folderName)
+                        .subTitle("")
                         .setExtraProperties(
                             isUsbAttached = selectedUsbID.isNotEmpty(),
                             itemType = UsbMediaItem.Builder.ITEM_FOLDER,
@@ -248,6 +258,39 @@ class MusicProvider(private val mContext: Context) {
         return mediaItems
     }
 
+    private fun getArtistChildren(
+        mediaId: String,
+        usbID: String? = null
+    ): List<MediaBrowserCompat.MediaItem> {
+        val mediaItems = mutableListOf<MediaBrowserCompat.MediaItem>()
+        val artists = getUsbSource(usbID)?.artistInDB?.value?.sortedBy { it.title }
+        if (artists != null) {
+            for (artist in artists) {
+                val artistPath = MediaIDHelper.createMediaID(
+                    artist.id.toString(),
+                    mediaId
+                )
+                val albumIcons = getUsbSource()?.songInArtistDB?.get(artist.id)?.firstOrNull()?.getUri()
+
+                mediaItems.add(
+                    UsbMediaItem.with(mContext)
+                        .mediaID(artistPath)
+                        .title(artist.title)
+                        .asBrowsable()
+                        .icon(albumIcons)
+                        .setExtraProperties(
+                            isUsbAttached = selectedUsbID.isNotEmpty(),
+                            itemType = UsbMediaItem.Builder.ITEM_ARTIST,
+                            path = artist.albumArt
+                        )
+                        .build()
+                )
+            }
+        }
+        return mediaItems
+    }
+
+
     private fun getAlbumSongChildren(
         mediaId: String,
         usbID: String? = null
@@ -259,6 +302,19 @@ class MusicProvider(private val mContext: Context) {
         val songList = getUsbSource()?.songInAlbumDB?.get(usbID?.toLong())
         songList?.forEach {
             mediaItems.add(getPlayableSong(it, MEDIA_ID_MUSICS_BY_ALBUM))
+        }
+        return mediaItems
+    }
+
+    private fun getArtistSongChildren(
+        mediaId: String,
+        usbID: String? = null
+    ): List<MediaBrowserCompat.MediaItem> {
+
+        val mediaItems = mutableListOf<MediaBrowserCompat.MediaItem>()
+        val songList = getUsbSource()?.songInArtistDB?.get(usbID?.toLong())
+        songList?.forEach {
+            mediaItems.add(getPlayableSong(it, MEDIA_ID_MUSICS_BY_ARTIST))
         }
         return mediaItems
     }

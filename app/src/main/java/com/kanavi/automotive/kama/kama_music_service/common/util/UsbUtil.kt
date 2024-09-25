@@ -23,6 +23,7 @@ import com.kanavi.automotive.kama.kama_music_service.common.extension.getYear
 import com.kanavi.automotive.kama.kama_music_service.common.extension.isAudioFast
 import com.kanavi.automotive.kama.kama_music_service.data.database.model.ListItem
 import com.kanavi.automotive.kama.kama_music_service.data.database.model.album.Album
+import com.kanavi.automotive.kama.kama_music_service.data.database.model.artist.Artist
 import com.kanavi.automotive.kama.kama_music_service.data.database.model.song.Song
 import com.kanavi.automotive.kama.kama_music_service.service.mediaSource.MusicProvider
 import com.kanavi.automotive.kama.kama_music_service.service.mediaSource.TreeNode
@@ -55,10 +56,13 @@ object UsbUtil : KoinComponent {
         rootPath: String,
         songInDb: MutableStateFlow<List<Song>>,
         albumInDb: MutableStateFlow<List<Album>>,
+        artistInDb: MutableStateFlow<List<Artist>>,
         favoriteInDb: MutableStateFlow<List<Song>>,
-        songInAlbumInDb: HashMap<Long, List<Song>>
-    ) = withContext(Dispatchers.IO) {
+        songInAlbumInDb: HashMap<Long, List<Song>>,
+        songInArtistInDb: HashMap<Long, List<Song>>
+        ) = withContext(Dispatchers.IO) {
         Timber.d("get data from Database")
+
         val usbId = rootPath.getUsbID()
         songInDb.value = DBHelper.getAllSongFromUsb(usbId)
         val favoriteList = DBHelper.getAllSongFavorite(usbId)
@@ -68,6 +72,10 @@ object UsbUtil : KoinComponent {
         albumInDb.value = DBHelper.getAllAlbumFromUsb(usbId)
         albumInDb.value.forEach {
             songInAlbumInDb[it.id] = DBHelper.getAllSongFromAlbum(it.title)
+        }
+        artistInDb.value = DBHelper.getAllArtistFromUsb(usbId)
+        artistInDb.value.forEach {
+            songInArtistInDb[it.id] = DBHelper.getAllSongFromArtist(it.title)
         }
     }
 
@@ -79,8 +87,10 @@ object UsbUtil : KoinComponent {
         treeNode: TreeNode,
         songInDb: MutableStateFlow<List<Song>>,
         albumInDb: MutableStateFlow<List<Album>>,
+        artistInDb: MutableStateFlow<List<Artist>>,
         favoriteInDb: MutableStateFlow<List<Song>>,
-        songInAlbumInDb: HashMap<Long, List<Song>>
+        songInAlbumInDb: HashMap<Long, List<Song>>,
+        songInArtistInDb: HashMap<Long, List<Song>>
 
     ) {
         Timber.e("===========START SCAN ALL MEDIA FILES FROM USB ID: $rootPath============")
@@ -99,8 +109,10 @@ object UsbUtil : KoinComponent {
                     rootPath,
                     songInDb,
                     albumInDb,
+                    artistInDb,
                     favoriteInDb,
-                    songInAlbumInDb
+                    songInAlbumInDb,
+                    songInArtistInDb
                 )
                 isDatabaseBefore[0] = true
                 withContext(Dispatchers.Main) {
@@ -128,8 +140,10 @@ object UsbUtil : KoinComponent {
                 isDatabaseBefore,
                 songInDb,
                 albumInDb,
+                artistInDb,
                 favoriteInDb,
-                songInAlbumInDb
+                songInAlbumInDb,
+                songInArtistInDb
             )
 //            val itemUsbMediaID = MediaIDHelper.createMediaID(
 //                musicProvider.getSelectedUsbID(),
@@ -144,14 +158,16 @@ object UsbUtil : KoinComponent {
                 rootPath,
                 songInDb,
                 albumInDb,
+                artistInDb,
                 favoriteInDb,
-                songInAlbumInDb
+                songInAlbumInDb,
+                songInArtistInDb
             )
 
             Timber.d("Songs lastest: ${songInDb.value.size}")
             Timber.d("Albums: ${albumInDb.value.size}")
             Timber.d("Favorites: ${favoriteInDb.value.size}")
-
+            Timber.d("Artists: ${artistInDb.value.size}")
             musicProvider.notifyDataChanged(
                 listOf(
                     MEDIA_ID_MUSICS_BY_SONGS,
@@ -175,8 +191,11 @@ object UsbUtil : KoinComponent {
         isCheckDB: MutableList<Boolean>,
         songInDb: MutableStateFlow<List<Song>>,
         albumInDb: MutableStateFlow<List<Album>>,
+        artistInDb: MutableStateFlow<List<Artist>>,
         favoriteInDb: MutableStateFlow<List<Song>>,
-        songInAlbumInDb: HashMap<Long, List<Song>>
+        songInAlbumInDb: HashMap<Long, List<Song>>,
+        songInArtistInDb: HashMap<Long, List<Song>>
+
     ) {
         Timber.i("scanning file with absolutePath: ${file.absolutePath} path: ${file.path}")
         if (file.isHidden) {
@@ -221,8 +240,10 @@ object UsbUtil : KoinComponent {
                             path,
                             songInDb,
                             albumInDb,
+                            artistInDb,
                             favoriteInDb,
-                            songInAlbumInDb
+                            songInAlbumInDb,
+                            songInArtistInDb
                         )
 
                         musicProvider.notifyDataChanged(
@@ -251,8 +272,10 @@ object UsbUtil : KoinComponent {
                     isCheckDB,
                     songInDb,
                     albumInDb,
+                    artistInDb,
                     favoriteInDb,
-                    songInAlbumInDb
+                    songInAlbumInDb,
+                    songInArtistInDb
                 )
             }
         }
