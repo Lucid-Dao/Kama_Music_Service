@@ -92,7 +92,8 @@ object UsbMediaItem {
             duration: Long = 0L,
             path: String = "",
             dateTaken: String = "",
-            isFavorite: Boolean = false
+            isFavorite: Boolean = false,
+            songCount: Int = 0
         ): Builder {
             val property = bundleOf(
                 EXTRA_IS_EMPTY_ITEM to isEmptyItem,
@@ -104,7 +105,8 @@ object UsbMediaItem {
                 EXTRA_SONG_DURATION to duration,
                 EXTRA_SONG_PATH to path,
                 EXTRA_DATE_TAKEN to dateTaken,
-                EXTRA_SONG_FAVORITE to isFavorite
+                EXTRA_SONG_FAVORITE to isFavorite,
+                EXTRA_SONG_NUMBER to songCount
             )
             mBuilder?.setExtras(property)
             return this
@@ -140,8 +142,8 @@ object UsbMediaItem {
             const val EXTRA_SONG_DURATION = "SONG_DURATION"
             const val EXTRA_SONG_PATH = "SONG_PATH"
             const val EXTRA_DATE_TAKEN = "DATE_TAKEN"
-            const val EXTRA_IS_LOADING_METADATA = "KEY_IS_LOADING_METADATA"
             const val EXTRA_SONG_FAVORITE = "SONG_FAVORITE"
+            const val EXTRA_SONG_NUMBER = "SONG_NUMBER"
 
             const val EXTRA_ITEM_TYPE = "ITEM_TYPE"
             const val ITEM_EMPTY = -1

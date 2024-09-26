@@ -1,6 +1,7 @@
 package com.kanavi.automotive.kama.kama_music_service.service.mediaSource
 
 import android.content.Context
+import android.net.Uri
 import android.support.v4.media.MediaBrowserCompat
 import androidx.core.net.toUri
 import com.kanavi.automotive.kama.kama_music_service.common.constant.MediaConstant.MEDIA_ID_MUSICS_BY_ALBUM
@@ -249,7 +250,8 @@ class MusicProvider(private val mContext: Context) {
                         .setExtraProperties(
                             isUsbAttached = selectedUsbID.isNotEmpty(),
                             itemType = UsbMediaItem.Builder.ITEM_ALBUM,
-                            path = album.coverArt
+                            path = album.coverArt,
+                            songCount = album.songCount
                         )
                         .build()
                 )
@@ -270,18 +272,19 @@ class MusicProvider(private val mContext: Context) {
                     artist.id.toString(),
                     mediaId
                 )
-                val albumIcons = getUsbSource()?.songInArtistDB?.get(artist.id)?.firstOrNull()?.getUri()
+//                val artistIcons = getUsbSource()?.songInArtistDB?.get(artist.id)?.firstOrNull()?.getUri()
 
+                Timber.d("artUri from Service: ${artist.albumArt}")
                 mediaItems.add(
                     UsbMediaItem.with(mContext)
                         .mediaID(artistPath)
                         .title(artist.title)
                         .asBrowsable()
-                        .icon(albumIcons)
+                        .icon(Uri.parse(artist.albumArt))
                         .setExtraProperties(
                             isUsbAttached = selectedUsbID.isNotEmpty(),
                             itemType = UsbMediaItem.Builder.ITEM_ARTIST,
-                            path = artist.albumArt
+                            songCount = artist.songCount
                         )
                         .build()
                 )
@@ -295,7 +298,6 @@ class MusicProvider(private val mContext: Context) {
         mediaId: String,
         usbID: String? = null
     ): List<MediaBrowserCompat.MediaItem> {
-
 
         val mediaItems = mutableListOf<MediaBrowserCompat.MediaItem>()
 //        val albumId = MediaIDHelper.extractMusicID(mediaId)

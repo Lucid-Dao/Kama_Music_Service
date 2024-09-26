@@ -6,6 +6,7 @@ import androidx.core.net.toUri
 import com.kanavi.automotive.kama.kama_music_service.data.database.model.album.Album
 import com.kanavi.automotive.kama.kama_music_service.data.database.model.artist.Artist
 import com.kanavi.automotive.kama.kama_music_service.data.database.model.song.Song
+import timber.log.Timber
 
 object MusicUtil {
     fun getMediaStoreAlbumCoverUri(albumId: Long): Uri {
@@ -22,12 +23,13 @@ object MusicUtil {
             if (songCount > 0) {
                 val albumCount = listSongByArtist.groupBy { it.album }.size
                 val artistId = listSongByArtist.first().artistId
+                val artistArt = listSongByArtist.first().path
                 val artist = Artist(
                     id = artistId,
                     title = artistName,
                     songCount = songCount,
                     albumCount = albumCount,
-                    albumArt = "",
+                    albumArt = artistArt,
                     usbId = listSongByArtist[0].usbId
                 )
                 artists.add(artist)
