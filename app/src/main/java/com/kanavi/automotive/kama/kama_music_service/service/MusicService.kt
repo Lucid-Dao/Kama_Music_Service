@@ -31,6 +31,7 @@ import com.kanavi.automotive.kama.kama_music_service.common.constant.MediaConsta
 import com.kanavi.automotive.kama.kama_music_service.common.constant.MediaConstant.KEY_USB_ATTACHED
 import com.kanavi.automotive.kama.kama_music_service.common.constant.MediaConstant.MEDIA_ID_ATTACHED_STATE
 import com.kanavi.automotive.kama.kama_music_service.common.constant.MediaConstant.MEDIA_ID_MUSICS_BY_FAVORITE
+import com.kanavi.automotive.kama.kama_music_service.common.constant.MediaConstant.MEDIA_ID_MUSICS_BY_SONGS
 import com.kanavi.automotive.kama.kama_music_service.common.constant.MediaConstant.MEDIA_ID_RECENT_ROOT
 import com.kanavi.automotive.kama.kama_music_service.common.extension.toMediaSessionQueue
 import com.kanavi.automotive.kama.kama_music_service.common.util.DBHelper
@@ -58,6 +59,7 @@ import timber.log.Timber
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.util.Objects
+import kotlin.math.min
 
 class MusicService : MediaBrowserServiceCompat(), Playback.PlaybackCallbacks, KoinComponent {
 
@@ -314,7 +316,6 @@ class MusicService : MediaBrowserServiceCompat(), Playback.PlaybackCallbacks, Ko
                 Timber.d("items __MUSIC_RECENT__")
                 //load D -> sendResult
                 // load files....
-
                 result.sendResult(storage.loadRecentSong()?.let { song -> listOf(song) })
 
             }
@@ -340,9 +341,36 @@ class MusicService : MediaBrowserServiceCompat(), Playback.PlaybackCallbacks, Ko
 
             else -> {
                 Timber.d("load items for: $parentId")
-                //100->result
-                ////full -> full - 100
                 result.sendResult(musicProvider.getChildren(parentId))
+            }
+        }
+    }
+
+    override fun onLoadChildren(
+        parentId: String,
+        result: Result<List<MediaBrowserCompat.MediaItem>>,
+        options: Bundle
+    ) {
+        when(parentId){
+            MEDIA_ID_MUSICS_BY_SONGS ->
+            {
+                result.detach()
+                val page = options.getInt(MediaBrowserCompat.EXTRA_PAGE)
+                val pageSize = options.getInt(MediaBrowserCompat.EXTRA_PAGE_SIZE)
+
+                val mediaItems = musicProvider.getChildren(parentId)
+                val fromIndex = page * pageSize
+                val toIndex = min(fromIndex + pageSize, mediaItems.size)
+
+                Timber.d("fromIndex: $fromIndex, toIndex: $toIndex")
+                if (fromIndex < toIndex) {
+                    val itemsForPage = mediaItems.subList(fromIndex, toIndex)
+                    result.sendResult(itemsForPage)
+                } else {
+                    result.sendResult(emptyList())
+                }
+            } else ->{
+                Timber.d("Don't support")
             }
         }
     }

@@ -138,7 +138,7 @@ class MusicProvider(private val mContext: Context) {
 
         Timber.d("mediaItems size: ${mediaItems.size}")
 
-        return mediaItems.take(300)
+        return mediaItems
     }
 
     private fun getSongChildren(usbID: String? = null): List<MediaBrowserCompat.MediaItem> {
@@ -206,6 +206,7 @@ class MusicProvider(private val mContext: Context) {
                     folderPath,
                     MEDIA_ID_MUSICS_BY_FILE
                 )
+                Timber.d("Selected usb: ${selectedUsbID.isNotEmpty()}")
                 mediaItems.add(
                     0,
                     UsbMediaItem.with(mContext)
@@ -237,7 +238,7 @@ class MusicProvider(private val mContext: Context) {
                     mediaId
                 )
                 var albumIcons = UsbUtil.getAlbumCoverUri(album.title)
-                if(albumIcons == null){
+                if (albumIcons == null) {
                     albumIcons = getUsbSource()?.songInAlbumDB?.get(album.id)?.firstOrNull()?.getUri()
                 }
                 mediaItems.add(
@@ -273,8 +274,6 @@ class MusicProvider(private val mContext: Context) {
                     mediaId
                 )
 //                val artistIcons = getUsbSource()?.songInArtistDB?.get(artist.id)?.firstOrNull()?.getUri()
-
-                Timber.d("artUri from Service: ${artist.albumArt}")
                 mediaItems.add(
                     UsbMediaItem.with(mContext)
                         .mediaID(artistPath)
