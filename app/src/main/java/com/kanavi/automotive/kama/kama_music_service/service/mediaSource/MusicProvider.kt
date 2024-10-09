@@ -332,6 +332,7 @@ class MusicProvider(private val mContext: Context) {
             .asPlayable()
             .mediaID(songPath)
             .title(song.title)
+            .description(song.album)
             .subTitle(song.artist)
             .icon(song.coverArt.toUri())
             .setExtraProperties(
